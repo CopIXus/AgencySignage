@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 340" role="img" aria-labelledby="title desc">
+  <title id="title">From an edit to the display</title>
+  <desc id="desc">A draft stays off the TVs until publish. Displays keep the current page until a newer version exists. A tablet can open a card and return to the board after a timeout.</desc>
+  <rect width="980" height="340" rx="18" fill="#0c2340"/>
+  <text x="40" y="46" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="26" font-weight="650">What a display does with a screen</text>
+
+  <rect x="36" y="78" width="200" height="110" rx="12" fill="#16345a" stroke="#c4a35a"/>
+  <text x="136" y="122" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="18" font-weight="650">Draft</text>
+  <text x="136" y="152" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="14">Preview only</text>
+
+  <rect x="272" y="78" width="200" height="110" rx="12" fill="#16345a" stroke="#c4a35a"/>
+  <text x="372" y="122" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="18" font-weight="650">Publish</text>
+  <text x="372" y="152" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="14">Version number rises</text>
+
+  <rect x="508" y="78" width="200" height="110" rx="12" fill="#16345a" stroke="#c4a35a"/>
+  <text x="608" y="116" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="18" font-weight="650">Check</text>
+  <text x="608" y="146" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="14">About every 10 seconds</text>
+
+  <rect x="744" y="78" width="200" height="110" rx="12" fill="#08182e" stroke="#e6c98a" stroke-width="2"/>
+  <text x="844" y="116" text-anchor="middle" fill="#e6c98a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="18" font-weight="650">Stay or swap</text>
+  <text x="844" y="146" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="14">Same version stays put</text>
+
+  <path d="M236 133 H272" stroke="#e6c98a" stroke-width="3"/>
+  <path d="M472 133 H508" stroke="#e6c98a" stroke-width="3"/>
+  <path d="M708 133 H744" stroke="#e6c98a" stroke-width="3"/>
+
+  <rect x="36" y="220" width="440" height="86" rx="12" fill="#16345a"/>
+  <text x="56" y="254" fill="#e6c98a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16" font-weight="650">Lobby TV</text>
+  <text x="56" y="280" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="15">Shows the published screen. Cards are not tappable.</text>
+
+  <rect x="504" y="220" width="440" height="86" rx="12" fill="#16345a"/>
+  <text x="524" y="254" fill="#e6c98a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16" font-weight="650">Tablet kiosk</text>
+  <text x="524" y="280" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="15">Tap a card for details, then return after the timer.</text>
+</svg>

@@ -2,7 +2,7 @@ import type { Branding, BurnInSettings, Presentation, TemplateKind } from './typ
 
 export function brandingDefaults(): Branding {
   return {
-    agencyName: 'Oakland County',
+    agencyName: 'Agency',
     sheriffLine: 'Sheriff',
     primary: '#0c2340',
     accent: '#c4a35a',

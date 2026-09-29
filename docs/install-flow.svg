@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 280" role="img" aria-labelledby="title desc">
+  <title id="title">Install Agency Signage</title>
+  <desc id="desc">Run one command on the Pi, choose the admin password, then open the admin site and set up each display.</desc>
+  <rect width="980" height="280" rx="18" fill="#0c2340"/>
+  <text x="40" y="46" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="26" font-weight="650">Install, then choose the admin password</text>
+
+  <rect x="36" y="80" width="200" height="150" rx="14" fill="#16345a" stroke="#c4a35a"/>
+  <text x="136" y="124" text-anchor="middle" fill="#e6c98a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="18" font-weight="700">1</text>
+  <text x="136" y="156" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16">Run the</text>
+  <text x="136" y="180" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16">install command</text>
+  <text x="136" y="204" text-anchor="middle" fill="#c4a35a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="13">on the host Pi</text>
+
+  <rect x="272" y="80" width="200" height="150" rx="14" fill="#16345a" stroke="#c4a35a"/>
+  <text x="372" y="124" text-anchor="middle" fill="#e6c98a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="18" font-weight="700">2</text>
+  <text x="372" y="156" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16">Type the admin</text>
+  <text x="372" y="180" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16">password twice</text>
+  <text x="372" y="204" text-anchor="middle" fill="#c4a35a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="13">at least 8 characters</text>
+
+  <rect x="508" y="80" width="200" height="150" rx="14" fill="#16345a" stroke="#c4a35a"/>
+  <text x="608" y="124" text-anchor="middle" fill="#e6c98a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="18" font-weight="700">3</text>
+  <text x="608" y="156" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16">Open /admin</text>
+  <text x="608" y="180" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16">as user admin</text>
+  <text x="608" y="204" text-anchor="middle" fill="#c4a35a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="13">signage.local:8443</text>
+
+  <rect x="744" y="80" width="200" height="150" rx="14" fill="#16345a" stroke="#c4a35a"/>
+  <text x="844" y="124" text-anchor="middle" fill="#e6c98a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="18" font-weight="700">4</text>
+  <text x="844" y="156" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16">On each display</text>
+  <text x="844" y="180" text-anchor="middle" fill="#f4efe4" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="16">open /setup</text>
+  <text x="844" y="204" text-anchor="middle" fill="#c4a35a" font-family="Segoe UI, Liberation Sans, sans-serif" font-size="13">name it and enroll</text>
+
+  <path d="M236 155 H272" stroke="#e6c98a" stroke-width="3"/>
+  <path d="M472 155 H508" stroke="#e6c98a" stroke-width="3"/>
+  <path d="M708 155 H744" stroke="#e6c98a" stroke-width="3"/>
+</svg>

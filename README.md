@@ -2,7 +2,11 @@
 
 A local signage server for a Raspberry Pi on the internal network. The Pi holds the pages, photos, and accounts. Displays open a screen URL and never call the public internet themselves. Weather is the one optional outbound request, and the Pi makes it. If that request fails, the weather is left off the sign.
 
+![One Pi on the local network serves the admin and every display](docs/how-it-works.svg)
+
 ## Install on the Pi
+
+![Install command, choose a password, open admin, then set up each display](docs/install-flow.svg)
 
 On the Raspberry Pi that will host the signs, run:
 
@@ -10,9 +14,13 @@ On the Raspberry Pi that will host the signs, run:
 curl -fsSL https://raw.githubusercontent.com/CopIXus/AgencySignage/main/deploy/install.sh | sudo bash
 ```
 
-The installer downloads the app, installs Node, and starts it at boot. The first time through, it asks you to choose the `admin` password. That password is used to create the account and is not saved in the service file. Later updates with the same command leave the database, photos, and password in place.
+The installer downloads the app, installs Node, and starts it at boot. The first time through, it asks you to choose the `admin` password. Type it twice. It must be at least 8 characters. That password creates the account and is not saved in the service file. Later updates with the same command leave the database, photos, and password in place.
 
-Then open `https://signage.local:8443/admin`.
+Then open `https://signage.local:8443/admin` and sign in as `admin`.
+
+## What a screen does
+
+![A draft stays off the displays until publish. Tablets can open a card and return on a timer.](docs/screen-flow.svg)
 
 ## First start on a computer you already cloned
 

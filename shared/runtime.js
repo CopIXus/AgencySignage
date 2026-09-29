@@ -60,7 +60,7 @@ export function closestMode(width, height) {
 
 export function brandingDefaults() {
   return {
-    agencyName: 'Oakland County',
+    agencyName: 'Agency',
     sheriffLine: 'Sheriff',
     primary: '#0c2340',
     accent: '#c4a35a',
