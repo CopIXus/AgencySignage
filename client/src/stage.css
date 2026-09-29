@@ -1,0 +1,164 @@
+.stage-root, .stage-root * { box-sizing: border-box; }
+.stage-root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #06101c;
+  cursor: none;
+}
+.stage-root.previewing { cursor: auto; background: transparent; }
+.stage-root.previewing, .stage-root.previewing * { cursor: auto; }
+.canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  overflow: hidden;
+  color: var(--ink, #f4efe4);
+  background: var(--primary, #0c2340);
+  font-family: "Segoe UI", "Liberation Sans", sans-serif;
+}
+.canvas.light {
+  background: var(--light-bg, #f6f1e6);
+  color: var(--light-ink, #0c2340);
+}
+.canvas.motion-subtle .rise, .canvas.motion-smooth .rise { animation: rise .7s ease both; }
+.canvas.motion-smooth .rise { animation-duration: 1.1s; }
+.canvas .rise:nth-child(2) { animation-delay: .04s; }
+.canvas .rise:nth-child(3) { animation-delay: .08s; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.seal-only {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 1rem;
+}
+.seal-mark {
+  width: 18%;
+  aspect-ratio: 1;
+  border: 6px solid var(--accent, #c4a35a);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: Georgia, "Liberation Serif", serif;
+  letter-spacing: .2em;
+  color: var(--accent, #c4a35a);
+}
+.footer-chrome, .progress-chip {
+  position: absolute;
+  z-index: 4;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-size: 18px;
+  opacity: .72;
+}
+.footer-chrome { right: 2.2%; bottom: 1.6%; display: flex; gap: 1.2rem; }
+.progress-line {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: color-mix(in srgb, var(--accent) 35%, transparent); z-index: 5;
+}
+.progress-line span { display: block; height: 100%; background: var(--accent); width: 100%; transform-origin: left center; }
+.progress-chip { left: 2%; bottom: 1.6%; }
+.board, .directory, .slide {
+  height: 100%;
+  padding: 3.2% 4%;
+  display: flex;
+  flex-direction: column;
+  gap: 2%;
+}
+.board h1, .directory h1, .slide h1 {
+  margin: 0;
+  text-align: center;
+  font-family: Georgia, "Liberation Serif", serif;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent, #c4a35a);
+  font-size: 4.2cqh;
+}
+.honoree {
+  display: grid;
+  grid-template-columns: 22% 1fr 18%;
+  gap: 3%;
+  align-items: center;
+}
+.canvas.tall .honoree { grid-template-columns: 34% 1fr; }
+.canvas.tall .badge-slot { display: none; }
+.portrait-photo, .badge-slot, .card-logo {
+  background: #d9d3c7;
+  overflow: hidden;
+}
+.portrait-photo { aspect-ratio: 4/5; }
+.portrait-photo img, .badge-slot img, .card-logo img { width: 100%; height: 100%; object-fit: cover; }
+.badge-slot { aspect-ratio: 1; border-radius: 50%; border: 4px solid var(--accent); }
+.honoree h2 { margin: 0 0 .3em; font-size: 3.4cqh; }
+.honoree p { margin: .15em 0; font-size: 2.1cqh; opacity: .92; }
+.history-head {
+  text-align: center;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: 1.7cqh;
+  color: var(--accent);
+}
+.history-window { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+.history-window.fade::before, .history-window.fade::after {
+  content: "";
+  position: absolute; left: 0; right: 0; height: 8%; z-index: 1; pointer-events: none;
+}
+.history-window.fade::before { top: 0; background: linear-gradient(var(--primary), transparent); }
+.history-window.fade::after { bottom: 0; background: linear-gradient(transparent, var(--primary)); }
+.canvas.light .history-window.fade::before { background: linear-gradient(var(--light-bg), transparent); }
+.canvas.light .history-window.fade::after { background: linear-gradient(transparent, var(--light-bg)); }
+.plates, .cards {
+  display: grid;
+  gap: 1.2%;
+  align-content: start;
+}
+.plates { grid-template-columns: repeat(3, 1fr); }
+.canvas.wide .plates { grid-template-columns: repeat(4, 1fr); }
+.canvas.tight .plates { grid-template-columns: repeat(2, 1fr); }
+.plate, .card {
+  background: var(--plate, #f3e6c4);
+  color: #1b2430;
+  border-radius: 4px;
+  padding: .55em .7em;
+  font-size: calc(1.7cqh * var(--fit, 1));
+}
+.plate strong, .card strong { display: block; }
+.plate span, .card span { opacity: .75; font-size: .86em; }
+.scroll-track { animation: drift linear infinite; }
+@keyframes drift { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+.board-foot, .directory-foot {
+  display: flex; justify-content: space-between; align-items: end; gap: 2%;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  padding-top: 1.2%;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  font-size: 1.8cqh;
+}
+.canvas.wide .board { display: grid; grid-template-columns: 34% 1fr; grid-template-rows: auto 1fr auto; }
+.canvas.wide .board h1, .canvas.wide .board-foot { grid-column: 1 / -1; }
+.cards { grid-template-columns: repeat(4, 1fr); }
+.canvas.tall .cards { grid-template-columns: repeat(2, 1fr); }
+.canvas.tight .cards { grid-template-columns: repeat(3, 1fr); }
+.card { min-height: 0; }
+.card-logo { width: 2.4em; height: 2.4em; float: right; border-radius: 4px; }
+.slide {
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+}
+.slide-row { display: grid; grid-template-columns: 1.4fr .6fr; gap: 6%; align-items: center; }
+.canvas.tall .slide-row { grid-template-columns: 1fr; text-align: center; }
+.slide .body { font-size: 3cqh; line-height: 1.35; }
+.slide .body p { margin: .4em 0; }
+.qr-block { display: grid; justify-items: center; gap: .6rem; }
+.qr-block img { width: min(28cqh, 100%); background: white; padding: 4%; }
+.qr-block figcaption { font-size: 1.8cqh; letter-spacing: .08em; text-transform: uppercase; }
+.logo-rest {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: #06101c; z-index: 6;
+}
+.logo-rest img { width: 28%; height: auto; }
+[contenteditable="true"] { outline: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent); }
