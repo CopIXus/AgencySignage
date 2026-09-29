@@ -82,6 +82,8 @@ export function presentationDefaults(template) {
     showClock: false,
     showWeather: false,
     progress: template === 'playlist',
+    details: false,
+    detailsSeconds: 30,
   }
 }
 

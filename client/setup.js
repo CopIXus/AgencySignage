@@ -56,27 +56,43 @@ async function page() {
     const { token } = await api('/api/admin/enroll', { method: 'POST', body: JSON.stringify(data) })
     const origin = location.origin
     const result = document.querySelector('#result')
+    const screenRow = screens.find((item) => item.id === data.screenId)
     if (android) {
-      const screenRow = screens.find((item) => item.id === data.screenId)
       result.innerHTML = `<div class="cardish"><h2>Android TV</h2><p>A browser on this TV cannot install the kiosk for you. Open a kiosk browser and pin it to:</p><p><code>${origin}/screen/${screenRow?.slug || ''}</code></p><p>Turn off sleep in the TV settings. Name this display “${escapeHtml(data.deviceName)}” so the dashboard can see it.</p></div>`
-      return
-    }
-    if (windows) {
+    } else if (windows) {
       result.innerHTML = `<div class="cardish"><h2>Windows</h2><p>Run this in PowerShell as Administrator. It trusts the local certificate, turns off the screensaver, and opens Chrome or Edge in kiosk mode. It also restarts that browser at ${escapeHtml(data.restartTime)}.</p><p><a href="/setup/install.ps1?token=${token}">Download install.ps1</a></p></div>`
-      return
+    } else {
+      const command = `curl -fsSL '${origin}/setup/install.sh?token=${token}' | bash`
+      const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+      result.innerHTML = local
+        ? `<div class="cardish"><h2>This machine</h2><p>Install the kiosk here. The link is used once.</p><button id="run" type="button">Install on this machine</button><pre id="log"></pre><p>Leave kiosk mode with Ctrl+Alt+F2, then <code>systemctl --user stop agency-signage-kiosk.service</code>.</p></div>`
+        : `<div class="cardish"><h2>Raspberry Pi or Linux</h2><p>This command installs Chromium, trusts the local certificate, turns off screen blanking, sets the panel mode, and restarts the browser at ${escapeHtml(data.restartTime)}. It does not contain the admin password. The link works once and expires in 30 minutes.</p><pre>${escapeHtml(command)}</pre><p>Leave kiosk mode with Ctrl+Alt+F2, then <code>systemctl --user stop agency-signage-kiosk.service</code>.</p></div>`
+      const run = document.querySelector('#run')
+      if (run) run.onclick = async () => {
+        const response = await fetch('/api/admin/kiosk/install', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) })
+        const body = await response.json()
+        document.querySelector('#log').textContent = body.output || body.error || (body.ok ? 'Installed' : 'Install failed')
+      }
     }
-    const command = `curl -fsSL '${origin}/setup/install.sh?token=${token}' | bash`
-    const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    result.innerHTML = local
-      ? `<div class="cardish"><h2>This machine</h2><p>Install the kiosk here. The link is used once.</p><button id="run" type="button">Install on this machine</button><pre id="log"></pre><p>Leave kiosk mode with Ctrl+Alt+F2, then <code>systemctl --user stop agency-signage-kiosk.service</code>.</p></div>`
-      : `<div class="cardish"><h2>Raspberry Pi or Linux</h2><p>This command installs Chromium, trusts the local certificate, turns off screen blanking, sets the panel mode, and restarts the browser at ${escapeHtml(data.restartTime)}. It does not contain the admin password. The link works once and expires in 30 minutes.</p><pre>${escapeHtml(command)}</pre><p>Leave kiosk mode with Ctrl+Alt+F2, then <code>systemctl --user stop agency-signage-kiosk.service</code>.</p></div>`
-    const run = document.querySelector('#run')
-    if (run) run.onclick = async () => {
-      const response = await fetch('/api/admin/kiosk/install', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) })
-      const body = await response.json()
-      document.querySelector('#log').textContent = body.output || body.error || (body.ok ? 'Installed' : 'Install failed')
-    }
+    result.insertAdjacentHTML('beforeend', '<p id="enroll-status" class="muted">Waiting for this display to open the screen.</p>')
+    watchPlayer(data, chosen)
   }
+}
+
+let enrollTimer = 0
+function watchPlayer(data, chosen) {
+  clearInterval(enrollTimer)
+  enrollTimer = setInterval(async () => {
+    const status = document.querySelector('#enroll-status')
+    if (!status) return clearInterval(enrollTimer)
+    const dash = await api('/api/dashboard').catch(() => null)
+    const screen = dash?.screens.find((item) => item.id === data.screenId)
+    const player = screen?.players?.find((item) => item.deviceName === data.deviceName)
+    if (!player) return
+    const match = chosen && player.width === chosen.width && player.height === chosen.height
+    status.className = 'ok'
+    status.textContent = `${data.deviceName} is enrolled at ${player.width}×${player.height}. ${match ? 'That matches the requested mode.' : 'The reported size differs from the requested mode.'}`
+  }, 2000)
 }
 
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])) }

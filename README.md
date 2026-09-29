@@ -36,6 +36,8 @@ Trust the local certificate once so the browser stops warning: download `https:/
 
 The dashboard shows whether each named display is in use, how many times the page has loaded, whether it is on the published version, and whether the resolution matches.
 
+On a tablet, turn on **Tap a card to open details** for that screen. A tap opens the full card, and the board returns on its own after the number of seconds you set. Touching the detail keeps it open a little longer. Lobby TVs can leave this off.
+
 ## Raspberry Pi
 
 The install command above installs Node, Avahi (`signage.local`), and a systemd service. The app code and the `data/` directory stay separate, so an update can replace the app and leave the database and media in place. From a checkout you already have, `sudo bash deploy/install-pi.sh` does the same thing.

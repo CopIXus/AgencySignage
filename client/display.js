@@ -8,6 +8,9 @@ let version = 0
 let tone = false
 let logo = false
 let hold = false
+const holds = new Set()
+const detailItems = new Map()
+let detailTimer = 0
 
 const playerId = localStorage.getItem('signage-player') || crypto.randomUUID()
 localStorage.setItem('signage-player', playerId)
@@ -63,12 +66,17 @@ function scheduleBurn() {
   if (burn.tone) burnTimers.push(setInterval(flashTone, burn.toneEveryMinutes * 60 * 1000))
 }
 function flashLogo() {
+  if (tone) {
+    const burn = payload?.presentation?.burnIn
+    setTimeout(flashLogo, ((burn?.toneFadeSeconds || 30) * 2 + (burn?.toneHoldSeconds || 45)) * 1000)
+    return
+  }
+  setHold('logo', true)
   logo = true
-  window.dispatchEvent(new CustomEvent('signage-hold', { detail: true }))
   paint()
   setTimeout(() => {
     logo = false
-    window.dispatchEvent(new CustomEvent('signage-hold', { detail: false }))
+    setHold('logo', false)
     paint()
   }, (payload?.presentation.burnIn.logoSeconds || 8) * 1000)
 }
@@ -81,6 +89,10 @@ function flashTone() {
 
 function paint() {
   if (!payload) { root.innerHTML = '<div class="stage-root"></div>'; return }
+  clearInterval(detailTimer)
+  holds.delete('detail')
+  hold = holds.size > 0
+  detailItems.clear()
   const branding = payload.branding || {}
   const family = payload.mode.family
   const wide = family === '16:9' || family === '16:10' || family === '4:3'
@@ -93,9 +105,9 @@ function paint() {
   const visW = turn ? payload.mode.height : payload.mode.width
   const visH = turn ? payload.mode.width : payload.mode.height
   const scale = Math.min(viewW / visW, viewH / visH)
-  root.innerHTML = `<div class="stage-root ${preview ? 'previewing' : ''}">
+  root.innerHTML = `<div class="stage-root ${preview ? 'previewing' : ''} ${payload.presentation.details ? 'interactive' : ''}">
     <div style="position:absolute;left:50%;top:50%;transform:translate(-50%, -50%) rotate(${turn}deg) scale(${scale})">
-      <div class="canvas ${wide ? 'wide' : 'tall'} ${tight ? 'tight' : ''} motion-${payload.presentation.motion} ${tone ? 'light' : ''}" style="width:${payload.mode.width}px;height:${payload.mode.height}px;--primary:${branding.primary};--accent:${branding.accent};--ink:${branding.ink};--plate:${branding.plate};--light-bg:${branding.lightBg};--light-ink:${branding.lightInk}">
+      <div class="canvas ${wide ? 'wide' : 'tall'} ${tight ? 'tight' : ''} motion-${payload.presentation.motion} ${tone ? 'light' : ''} ${hold ? 'holding' : ''}" style="width:${payload.mode.width}px;height:${payload.mode.height}px;--primary:${branding.primary};--accent:${branding.accent};--ink:${branding.ink};--plate:${branding.plate};--light-bg:${branding.lightBg};--light-ink:${branding.lightInk}">
         ${payload.empty ? seal(branding) : bodyFor(payload)}
         ${chrome()}
       </div>
@@ -103,6 +115,7 @@ function paint() {
     ${logo ? `<div class="logo-rest">${(payload.presentation.burnIn.logoMediaId || branding.sealMediaId) ? `<img src="/media/${payload.presentation.burnIn.logoMediaId || branding.sealMediaId}" alt="">` : '<div class="seal-mark">STAR</div>'}</div>` : ''}
   </div>`
   bindEdits()
+  bindDetails()
   fitLists()
   startPlaylist()
   startSlides()
@@ -119,7 +132,7 @@ function award(item) {
   const current = item.award.current || {}
   return `<section class="board">
     <h1 class="rise">${editable(item.award.title, preview, 'title')}</h1>
-    <div class="honoree rise">
+    <div class="honoree rise"${remember('current', personRecord(current))}>
       <div class="portrait-photo">${current.photoId ? `<img src="/media/${current.photoId}" alt="">` : ''}</div>
       <div>
         <h2>${editable(current.name || 'Name', preview, 'current.name')}</h2>
@@ -132,13 +145,13 @@ function award(item) {
       <div class="badge-slot">${item.branding.badgeMediaId ? `<img src="/media/${item.branding.badgeMediaId}" alt="">` : '<div class="seal-mark">STAR</div>'}</div>
     </div>
     <div class="history-head">Previous recipients</div>
-    ${list('plates', item.award.history, item, (row) => `<article class="plate"><strong>${escapeHtml(row.name)}</strong><span>#${escapeHtml(row.badgeNumber || '')} · ${escapeHtml(row.awardYear || '')}</span></article>`)}
+    ${list('plates', item.award.history, item, (row) => `<article class="plate"${remember(row.id, personRecord(row))}><strong>${escapeHtml(row.name)}</strong><span>#${escapeHtml(row.badgeNumber || '')} · ${escapeHtml(row.awardYear || '')}</span></article>`)}
     <footer class="board-foot"><span>${escapeHtml(item.branding.agencyName || '')}</span><span>${escapeHtml(item.branding.sheriffLine || '')}</span></footer>
   </section>`
 }
 function directory(item) {
   return `<section class="directory"><h1 class="rise">${escapeHtml(item.directory.title || '')}</h1>
-    ${list('cards', item.directory.cards, item, (card) => `<article class="card">${card.logoId ? `<img class="card-logo" src="/media/${card.logoId}" alt="">` : ''}<strong>${escapeHtml(card.name)}</strong><span>${escapeHtml(card.subtitle || '')}</span><span>${escapeHtml(card.phone || '')}</span><span>${escapeHtml(card.details || '')}</span></article>`)}
+    ${list('cards', item.directory.cards, item, (card) => `<article class="card"${remember(card.id, { title: card.name, image: card.logoId, lines: [card.subtitle, card.phone].filter(Boolean), body: card.details || '' })}>${card.logoId ? `<img class="card-logo" src="/media/${card.logoId}" alt="">` : ''}<strong>${escapeHtml(card.name)}</strong><span>${escapeHtml(card.subtitle || '')}</span><span>${escapeHtml(card.phone || '')}</span><span>${escapeHtml(card.details || '')}</span></article>`)}
   </section>`
 }
 function slides(item) {
@@ -156,7 +169,7 @@ function playlist(item) {
   }
   const entry = listItems[item._playIndex || 0]
   if (!entry) return seal(item.branding)
-  const child = { ...entry.payload, presentation: { ...entry.payload.presentation, progress: false, showClock: false, showWeather: false } }
+  const child = { ...entry.payload, presentation: { ...entry.payload.presentation, progress: false, showClock: false, showWeather: false, details: item.presentation.details, detailsSeconds: item.presentation.detailsSeconds } }
   const progress = item.presentation.progress && !hold
   const left = formatLeft((item._progress ?? 1) * entry.durationSec)
   return `${bodyFor(child)}${progress ? `<div class="progress-line"><span style="transform:scaleX(${item._progress ?? 1})"></span></div><div class="progress-chip">${(item._playIndex || 0) + 1} of ${listItems.length} · ${left}</div>` : ''}`
@@ -193,6 +206,93 @@ function bindEdits() {
     })
   })
 }
+function remember(id, record) {
+  if (!payload?.presentation?.details || !id) return ''
+  detailItems.set(String(id), record)
+  return ` data-detail-id="${escapeHtml(id)}"`
+}
+function personRecord(person) {
+  return {
+    title: person.name || 'Name',
+    image: person.photoId,
+    lines: [
+      person.badgeNumber ? `#${person.badgeNumber}` : '',
+      person.awardYear ? `Awarded for ${person.awardYear}` : '',
+      person.rank || '',
+      person.hireDate ? `Date of hire: ${person.hireDate}` : '',
+      person.yearsOfService ? `Years of service: ${person.yearsOfService}` : '',
+    ].filter(Boolean),
+    body: '',
+  }
+}
+function bindDetails() {
+  root.querySelectorAll('[data-detail-id]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      if (event.target.closest('[contenteditable]')) return
+      const record = detailItems.get(node.dataset.detailId)
+      if (!record) return
+      event.preventDefault()
+      openDetail(record)
+    })
+  })
+}
+function openDetail(record) {
+  const canvas = root.querySelector('.canvas')
+  if (!canvas) return
+  canvas.querySelector('.detail-sheet')?.remove()
+  const seconds = Math.max(5, Number(payload.presentation.detailsSeconds) || 30)
+  canvas.insertAdjacentHTML('beforeend', `<div class="detail-sheet">
+    <button class="detail-close" type="button">Close</button>
+    <article class="detail-card">
+      ${record.image ? `<img src="/media/${escapeHtml(record.image)}" alt="">` : ''}
+      <h2>${escapeHtml(record.title || '')}</h2>
+      ${(record.lines || []).map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+      ${record.body ? `<div class="detail-body">${escapeHtml(record.body)}</div>` : ''}
+    </article>
+    <div class="detail-timeout"><span></span></div>
+  </div>`)
+  const sheet = canvas.querySelector('.detail-sheet')
+  sheet.addEventListener('click', (event) => { if (event.target === sheet) closeDetail() })
+  sheet.querySelector('.detail-close').addEventListener('click', (event) => { event.stopPropagation(); closeDetail() })
+  sheet.querySelector('.detail-card').addEventListener('pointerdown', () => armDetail(seconds))
+  setHold('detail', true)
+  armDetail(seconds)
+}
+function armDetail(seconds) {
+  clearInterval(detailTimer)
+  const ends = performance.now() + seconds * 1000
+  const bar = root.querySelector('.detail-timeout span')
+  const tick = () => {
+    const left = ends - performance.now()
+    if (bar) bar.style.transform = `scaleX(${Math.max(0, left / (seconds * 1000))})`
+    if (left <= 0) closeDetail()
+  }
+  tick()
+  detailTimer = setInterval(tick, 200)
+}
+function closeDetail() {
+  clearInterval(detailTimer)
+  root.querySelector('.detail-sheet')?.remove()
+  setHold('detail', false)
+}
+function setHold(reason, on) {
+  const was = holds.size > 0
+  if (on) holds.add(reason)
+  else holds.delete(reason)
+  hold = holds.size > 0
+  root.querySelector('.canvas')?.classList.toggle('holding', hold)
+  if (!payload) return
+  if (hold && !was) {
+    payload._heldAt = performance.now()
+    payload._playLeft = Math.max(0, (payload._playUntil || performance.now()) - performance.now())
+    clearTimeout(playTimer)
+  }
+  if (!hold && was) {
+    if (payload._heldAt && payload._playStarted) payload._playStarted += performance.now() - payload._heldAt
+    payload._heldAt = 0
+    if (playAdvance && payload._playLeft != null) armPlay(payload._playLeft)
+  }
+}
 function fitLists() {
   root.querySelectorAll('.history-window').forEach((el) => {
     let low = 0.45
@@ -216,6 +316,14 @@ function fitLists() {
 let slideTimer = 0
 let playTimer = 0
 let playFrame = 0
+let playAdvance = null
+function armPlay(ms) {
+  clearTimeout(playTimer)
+  payload._playLeft = ms
+  payload._playUntil = performance.now() + ms
+  if (hold || !playAdvance) return
+  playTimer = setTimeout(() => playAdvance(), ms)
+}
 function startSlides() {
   clearTimeout(slideTimer)
   if (!payload || payload.template !== 'slides' || preview) return
@@ -230,27 +338,29 @@ function startSlides() {
 function startPlaylist() {
   clearTimeout(playTimer)
   cancelAnimationFrame(playFrame)
+  playAdvance = null
   if (!payload || payload.template !== 'playlist' || preview || payload.playlist?.override) return
   const entries = payload.playlist?.entries || []
   if (!entries.length) return
   const index = payload._playIndex || 0
   const duration = (entries[index]?.durationSec || 15) * 1000
-  const started = performance.now()
+  payload._playStarted = performance.now()
   const tick = (now) => {
     if (hold) { playFrame = requestAnimationFrame(tick); return }
-    payload._progress = 1 - Math.min(1, (now - started) / duration)
+    payload._progress = 1 - Math.min(1, (now - payload._playStarted) / duration)
     const bar = root.querySelector('.progress-line span')
     const chip = root.querySelector('.progress-chip')
     if (bar) bar.style.transform = `scaleX(${payload._progress})`
     if (chip) chip.textContent = `${index + 1} of ${entries.length} · ${formatLeft(payload._progress * entries[index].durationSec)}`
     playFrame = requestAnimationFrame(tick)
   }
-  playFrame = requestAnimationFrame(tick)
-  playTimer = setTimeout(() => {
+  playAdvance = () => {
     payload._playIndex = (index + 1) % entries.length
     payload._progress = 1
     paint()
-  }, duration)
+  }
+  playFrame = requestAnimationFrame(tick)
+  armPlay(duration)
 }
 function formatLeft(seconds) {
   const value = Math.max(0, Math.ceil(seconds))

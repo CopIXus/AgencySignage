@@ -162,3 +162,28 @@
 }
 .logo-rest img { width: 28%; height: auto; }
 [contenteditable="true"] { outline: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent); }
+.stage-root.interactive .card,
+.stage-root.interactive .plate,
+.stage-root.interactive .honoree { cursor: pointer; }
+.canvas.holding .scroll-track { animation-play-state: paused; }
+.detail-sheet {
+  position: absolute; inset: 0; z-index: 8;
+  background: color-mix(in srgb, #06101c 72%, var(--primary));
+  display: grid; place-items: center; padding: 5%;
+}
+.detail-card {
+  width: min(88%, 1500px); max-height: 84%; overflow: auto;
+  background: var(--plate, #f3e6c4); color: #1b2430;
+  border-radius: 16px; padding: 4% 5%;
+}
+.detail-card img { width: 28%; float: right; margin: 0 0 2% 4%; object-fit: cover; }
+.detail-card h2 { margin: 0 0 .25em; font-size: 5.4cqh; font-family: Georgia, "Liberation Serif", serif; }
+.detail-card p { margin: .15em 0; font-size: 2.8cqh; }
+.detail-body { margin-top: .8em; font-size: 2.5cqh; line-height: 1.4; white-space: pre-wrap; }
+.detail-close, .detail-card { cursor: pointer; }
+.detail-close {
+  position: absolute; top: 3%; right: 3%;
+  background: transparent; color: var(--ink, #f4efe4); border: 0; font-size: 2.2cqh;
+}
+.detail-timeout { position: absolute; left: 8%; right: 8%; bottom: 3%; height: 6px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.detail-timeout span { display: block; height: 100%; background: var(--accent); transform-origin: left center; }

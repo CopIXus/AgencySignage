@@ -67,7 +67,7 @@ async function dashboard() {
       ${dash.clockWarning ? '<p class="warn">The Pi clock looks wrong. Set the time before relying on day and time windows.</p>' : ''}
       ${dash.diskFreeBytes < 500 * 1024 * 1024 ? '<p class="warn">Less than 500 MB is free on the Pi.</p>' : ''}
       <div class="grid">${dash.screens.map((screen) => `<article class="cardish"><h2><a href="#/screens/${screen.id}">${escapeHtml(screen.name)}</a></h2><p>${escapeHtml(screen.template)} · ${screen.mode.width}×${screen.mode.height} · v${screen.version}</p><p>Loaded ${screen.loadCount} times</p>${(screen.players || []).map((player) => `<p class="${player.inUse ? 'ok' : 'muted'}">${escapeHtml(player.deviceName)} ${player.inUse ? 'in use' : 'idle'} · reported v${player.reportedVersion ?? '—'} ${player.width === screen.mode.width && player.height === screen.mode.height ? '· resolution matches' : '· resolution differs'}</p>`).join('') || '<p class="muted">No display has opened this screen.</p>'}</article>`).join('') || '<p>No screens yet. <a href="#/screens">Create one</a>.</p>'}</div>
-      <h2>Recent publishes</h2><ul>${dash.publishes.map((item) => `<li>${escapeHtml(item.username)} published version ${item.version} at ${escapeHtml(item.published_at)}</li>`).join('') || '<li class="muted">Nothing published yet.</li>'}</ul>`)
+      <h2>Recent publishes</h2><ul>${dash.publishes.map((item) => `<li>${escapeHtml(dash.screens.find((screen) => screen.id === item.screen_id)?.name || 'Screen')} · ${escapeHtml(item.username)} published version ${item.version} at ${escapeHtml(item.published_at)}</li>`).join('') || '<li class="muted">Nothing published yet.</li>'}</ul>`)
   }
   await draw()
   timer = setInterval(draw, 4000)
@@ -76,7 +76,8 @@ async function dashboard() {
 async function screensPage() {
   const screens = await api('/api/screens')
   const modes = await api('/api/modes')
-  shell('screens', `<h1>Screens</h1><form id="create" class="row"><input name="name" placeholder="Screen name" required><select name="template"><option value="award">Award board</option><option value="directory">Directory</option><option value="slides">Slides</option><option value="playlist">Playlist</option></select><select name="modeId">${modes.map((mode) => `<option value="${mode.id}">${escapeHtml(mode.label)}</option>`).join('')}</select><button class="primary">Create</button></form><div class="grid">${screens.map((screen) => `<a class="cardish" href="#/screens/${screen.id}"><strong>${escapeHtml(screen.name)}</strong><p class="muted">${escapeHtml(screen.template)} · /screen/${escapeHtml(screen.slug)} · v${screen.version}</p></a>`).join('')}</div>`)
+  shell('screens', `<h1>Screens</h1><form id="create" class="row"><input name="name" placeholder="Screen name" required><select name="template"><option value="award">Award board</option><option value="directory">Directory</option><option value="slides">Slides</option><option value="playlist">Playlist</option></select><select name="modeId">${modes.map((mode) => `<option value="${mode.id}">${escapeHtml(mode.label)}</option>`).join('')}</select><button class="primary">Create</button></form><div class="grid">${screens.map((screen) => `<article class="cardish"><a href="#/screens/${screen.id}"><strong>${escapeHtml(screen.name)}</strong></a><p class="muted">${escapeHtml(screen.template)} · /screen/${escapeHtml(screen.slug)} · v${screen.version}</p><div class="row"><button type="button" data-copy="${location.origin}/screen/${escapeHtml(screen.slug)}">Copy URL</button><a href="/screen/${escapeHtml(screen.slug)}?preview=1" target="_blank">Preview</a></div></article>`).join('')}</div>`)
+  document.querySelectorAll('[data-copy]').forEach((button) => { button.onclick = async () => { await navigator.clipboard.writeText(button.dataset.copy); button.textContent = 'Copied' } })
   document.querySelector('#create').onsubmit = async (event) => {
     event.preventDefault()
     const data = Object.fromEntries(new FormData(event.target))
@@ -152,6 +153,8 @@ function drawForm(form, state) {
     <label><input name="showClock" type="checkbox" ${screen.presentation.showClock ? 'checked' : ''}> Clock</label>
     <label><input name="showWeather" type="checkbox" ${screen.presentation.showWeather ? 'checked' : ''}> Weather</label>
     <label><input name="progress" type="checkbox" ${screen.presentation.progress ? 'checked' : ''}> Playlist countdown</label>
+    <label><input name="details" type="checkbox" ${screen.presentation.details ? 'checked' : ''}> Tap a card to open details</label>
+    <label>Return to the board after <input name="detailsSeconds" type="number" min="5" value="${screen.presentation.detailsSeconds || 30}"> seconds</label>
     <label><input name="logo" type="checkbox" ${burn.logo ? 'checked' : ''}> Logo rest</label>
     <label>Logo every minutes <input name="logoEveryMinutes" type="number" value="${burn.logoEveryMinutes}"></label>
     <label>Logo seconds <input name="logoSeconds" type="number" value="${burn.logoSeconds}"></label>
@@ -221,6 +224,8 @@ function readForm(form, state) {
   screen.presentation.showClock = data.get('showClock') === 'on'
   screen.presentation.showWeather = data.get('showWeather') === 'on'
   screen.presentation.progress = data.get('progress') === 'on'
+  screen.presentation.details = data.get('details') === 'on'
+  screen.presentation.detailsSeconds = Math.max(5, Number(data.get('detailsSeconds') || 30))
   screen.presentation.burnIn.logo = data.get('logo') === 'on'
   screen.presentation.burnIn.tone = data.get('tone') === 'on'
   screen.presentation.burnIn.logoEveryMinutes = Number(data.get('logoEveryMinutes') || 30)
@@ -310,8 +315,8 @@ function addEntry(state) {
 }
 
 async function datasets() {
-  const rows = await api('/api/datasets')
-  shell('datasets', `<h1>Datasets</h1>${rows.map((item) => `<article class="cardish"><h2>${escapeHtml(item.name)}</h2><p>${item.kind} · ${item.rows.length} rows · ${item.source}</p>${item.lastError ? `<p class="warn">${escapeHtml(item.lastError)}</p>` : ''}<form data-id="${item.id}" class="row"><input name="sourceUrl" value="${escapeAttr(item.sourceUrl || '')}" placeholder="http://10.0.0.5/cards.json"><button>Pull from LAN</button></form></article>`).join('')}`)
+  const [rows, screens] = await Promise.all([api('/api/datasets'), api('/api/screens')])
+  shell('datasets', `<h1>Datasets</h1>${rows.map((item) => `<article class="cardish"><h2>${escapeHtml(item.name)}</h2><p>${item.kind} · ${item.rows.length} rows · ${item.source}${item.lastFetch ? ` · fetched ${escapeHtml(item.lastFetch)}` : ''}</p><p class="muted">Used by ${screens.filter((screen) => screen.datasetId === item.id).map((screen) => escapeHtml(screen.name)).join(', ') || 'no screen'}</p>${item.lastError ? `<p class="warn">${escapeHtml(item.lastError)}</p>` : ''}<form data-id="${item.id}" class="row"><input name="sourceUrl" value="${escapeAttr(item.sourceUrl || '')}" placeholder="http://10.0.0.5/cards.json"><button>Pull from LAN</button></form></article>`).join('')}`)
   document.querySelectorAll('form[data-id]').forEach((form) => {
     form.onsubmit = async (event) => {
       event.preventDefault()
