@@ -87,14 +87,50 @@ export function presentationDefaults(template) {
   }
 }
 
+/**
+ * Layout = optional background photo + floating sections drawn over it.
+ * Positions are percentages of the screen so the same layout works on any mode.
+ * The `content` section is where the template (award, directory, slides) renders;
+ * it scrolls when the data is taller than the box.
+ */
+export function defaultLayout() {
+  return {
+    enabled: false,
+    backgroundMediaId: null,
+    backgroundFit: 'cover',
+    dim: 35,
+    blur: 0,
+    sections: [
+      { id: 'content', kind: 'content', x: 5, y: 8, w: 90, h: 84, fill: 'rgba(12,35,64,0.72)', ink: '', radius: 18, padding: 3, align: 'left', scroll: 'auto', font: 100 },
+    ],
+  }
+}
+
+export function newSection(kind) {
+  const base = { id: `s${Math.random().toString(36).slice(2, 8)}`, kind, x: 10, y: 10, w: 40, h: 20, fill: 'rgba(12,35,64,0.72)', ink: '', radius: 18, padding: 3, align: 'left', scroll: 'auto', font: 100 }
+  if (kind === 'text') return { ...base, title: 'Heading', body: 'Text shown inside this floating panel.' }
+  if (kind === 'image') return { ...base, mediaId: null, fit: 'contain', fill: 'transparent' }
+  if (kind === 'clock') return { ...base, w: 30, h: 12, showDate: true }
+  if (kind === 'content') return { ...base, x: 5, y: 8, w: 90, h: 84 }
+  return base
+}
+
+export const SECTION_KINDS = [
+  { id: 'content', label: 'Template content', help: 'The award board, directory cards, or slides. Scrolls when the data is taller than the box.' },
+  { id: 'text', label: 'Text panel', help: 'A heading and paragraph you write yourself.' },
+  { id: 'image', label: 'Photo or logo', help: 'One uploaded image, fitted inside the box.' },
+  { id: 'clock', label: 'Clock', help: 'Large time with optional date.' },
+]
+
 export function emptyDraft(template) {
   const branding = brandingDefaults()
+  const layout = defaultLayout()
   if (template === 'award') {
-    return { title: 'Patrol Deputy of the Year', branding, current: { name: '', badgeNumber: '', awardYear: '', rank: '', hireDate: '', yearsOfService: '', photoId: null } }
+    return { title: 'Patrol Deputy of the Year', branding, layout, current: { name: '', badgeNumber: '', awardYear: '', rank: '', hireDate: '', yearsOfService: '', photoId: null } }
   }
-  if (template === 'directory') return { title: 'Bonding Companies', branding }
-  if (template === 'slides') return { branding }
-  return { branding, entries: [] }
+  if (template === 'directory') return { title: 'Bonding Companies', branding, layout }
+  if (template === 'slides') return { branding, layout }
+  return { branding, layout, entries: [] }
 }
 
 export function datasetKindFor(template) {

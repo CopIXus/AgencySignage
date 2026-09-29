@@ -22,6 +22,9 @@ export function openDatabase() {
   db.exec('PRAGMA journal_mode = WAL')
   db.exec('PRAGMA foreign_keys = ON')
   for (const statement of schema) db.exec(statement)
+  for (const column of ['name TEXT NOT NULL DEFAULT \'Agency Signage\'', 'logo_media_id TEXT', 'theme TEXT NOT NULL DEFAULT \'dark\'']) {
+    try { db.exec(`ALTER TABLE agency ADD COLUMN ${column}`) } catch { /* column exists */ }
+  }
   if (!db.prepare('SELECT id FROM agency WHERE id = 1').get()) db.prepare('INSERT INTO agency (id, timezone) VALUES (1, ?)').run('America/Detroit')
   if (!db.prepare('SELECT id FROM overrides WHERE id = 1').get()) db.prepare('INSERT INTO overrides (id, active) VALUES (1, 0)').run()
   return db
@@ -40,6 +43,7 @@ const schema = [
   `CREATE TABLE IF NOT EXISTS publishes (id TEXT PRIMARY KEY, screen_id TEXT NOT NULL, user_id TEXT, username TEXT NOT NULL, version INTEGER NOT NULL, published_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, folder TEXT NOT NULL, filename TEXT NOT NULL, mime TEXT NOT NULL, bytes INTEGER NOT NULL, created_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS overrides (id INTEGER PRIMARY KEY CHECK (id = 1), active INTEGER NOT NULL DEFAULT 0, title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '', screen_id TEXT)`,
+  `CREATE TABLE IF NOT EXISTS api_tokens (id TEXT PRIMARY KEY, name TEXT NOT NULL, token_hash TEXT UNIQUE NOT NULL, role TEXT NOT NULL, created_at TEXT NOT NULL, last_used TEXT)`,
 ]
 
 export function agencyRow() {

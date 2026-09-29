@@ -105,21 +105,128 @@ function paint() {
   const visW = turn ? payload.mode.height : payload.mode.width
   const visH = turn ? payload.mode.width : payload.mode.height
   const scale = Math.min(viewW / visW, viewH / visH)
+  const layout = payload.layout && payload.layout.enabled ? payload.layout : null
   root.innerHTML = `<div class="stage-root ${preview ? 'previewing' : ''} ${payload.presentation.details ? 'interactive' : ''}">
-    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%, -50%) rotate(${turn}deg) scale(${scale})">
-      <div class="canvas ${wide ? 'wide' : 'tall'} ${tight ? 'tight' : ''} motion-${payload.presentation.motion} ${tone ? 'light' : ''} ${hold ? 'holding' : ''}" style="width:${payload.mode.width}px;height:${payload.mode.height}px;--primary:${branding.primary};--accent:${branding.accent};--ink:${branding.ink};--plate:${branding.plate};--light-bg:${branding.lightBg};--light-ink:${branding.lightInk}">
-        ${payload.empty ? seal(branding) : bodyFor(payload)}
+    <div class="canvas-wrap" style="width:${payload.mode.width}px;height:${payload.mode.height}px;transform:translate(-50%, -50%) rotate(${turn}deg) scale(${scale})">
+      <div class="canvas ${wide ? 'wide' : 'tall'} ${tight ? 'tight' : ''} ${layout ? 'layered' : ''} motion-${payload.presentation.motion} ${tone ? 'light' : ''} ${hold ? 'holding' : ''}" style="width:${payload.mode.width}px;height:${payload.mode.height}px;--primary:${branding.primary};--accent:${branding.accent};--ink:${branding.ink};--plate:${branding.plate};--light-bg:${branding.lightBg};--light-ink:${branding.lightInk};font-family:${fontStack(branding.font)}">
+        ${layout ? layered(payload, layout, branding) : (payload.empty ? seal(branding) : bodyFor(payload))}
         ${chrome()}
       </div>
     </div>
     ${logo ? `<div class="logo-rest">${(payload.presentation.burnIn.logoMediaId || branding.sealMediaId) ? `<img src="/media/${payload.presentation.burnIn.logoMediaId || branding.sealMediaId}" alt="">` : '<div class="seal-mark">STAR</div>'}</div>` : ''}
   </div>`
+  fitPanels()
   bindEdits()
   bindDetails()
+  bindPanels()
   fitLists()
   startPlaylist()
   startSlides()
 }
+
+function fontStack(font) {
+  if (font === 'serif') return 'Georgia, "Liberation Serif", serif'
+  if (font === 'rounded') return '"Trebuchet MS", "Nunito", "Liberation Sans", sans-serif'
+  if (font === 'mono') return '"Cascadia Mono", "JetBrains Mono", "Liberation Mono", monospace'
+  return '"Segoe UI", "Liberation Sans", sans-serif'
+}
+
+/* Layout mode: background photo, dimmer, and floating panels placed in percent of the canvas. */
+function layered(item, layout, branding) {
+  const fit = layout.backgroundFit === 'contain' ? 'contain' : 'cover'
+  const background = layout.backgroundMediaId
+    ? `<div class="layer-bg" style="background-image:url(/media/${escapeHtml(layout.backgroundMediaId)});background-size:${fit};filter:blur(${Number(layout.blur) || 0}px)"></div>`
+    : ''
+  const dim = `<div class="layer-dim" style="background:rgba(0,0,0,${Math.min(100, Math.max(0, Number(layout.dim) || 0)) / 100})"></div>`
+  return background + dim + (layout.sections || []).map((section) => panel(item, section, branding)).join('')
+}
+function panel(item, section, branding) {
+  const size = (Number(section.font) || 100) / 100
+  const style = [
+    `left:${num(section.x, 0)}%`, `top:${num(section.y, 0)}%`, `width:${num(section.w, 40)}%`, `height:${num(section.h, 20)}%`,
+    `background:${section.fill || 'transparent'}`, `border-radius:${num(section.radius, 0)}px`, `padding:${num(section.padding, 0)}%`,
+    section.ink ? `color:${section.ink}` : '', `text-align:${section.align || 'left'}`,
+    section.border ? `border:${num(section.borderWidth, 2)}px solid ${section.border}` : '',
+    section.shadow ? 'box-shadow:0 18px 60px rgba(0,0,0,.35)' : '',
+  ].filter(Boolean).join(';')
+  let inner = ''
+  if (section.kind === 'content') inner = `<div class="panel-inner panel-content">${item.empty ? seal(branding) : bodyFor(item)}</div>`
+  else if (section.kind === 'text') inner = `<div class="panel-inner panel-text" style="font-size:${(2.6 * size).toFixed(2)}cqh">${section.title ? `<h3>${escapeHtml(section.title)}</h3>` : ''}${section.body ? `<div>${escapeHtml(section.body).replace(/\n/g, '<br>')}</div>` : ''}</div>`
+  else if (section.kind === 'image') inner = section.mediaId ? `<img class="panel-image" src="/media/${escapeHtml(section.mediaId)}" style="object-fit:${section.fit === 'cover' ? 'cover' : 'contain'}" alt="">` : '<div class="panel-placeholder">Choose a photo or logo</div>'
+  else if (section.kind === 'clock') inner = `<div class="panel-inner panel-clock" style="font-size:${(6 * size).toFixed(2)}cqh"><span data-clock>${clockText()}</span>${section.showDate ? `<small data-date>${dateText()}</small>` : ''}</div>`
+  const label = { content: 'Content', text: 'Text', image: 'Image', clock: 'Clock' }[section.kind] || section.kind
+  return `<div class="panel panel-${escapeHtml(section.kind)} scroll-${escapeHtml(section.scroll || 'auto')}" data-section="${escapeHtml(section.id)}" style="${style}">${inner}${preview ? `<div class="panel-handle">${label} · drag to move</div><div class="panel-resize"></div>` : ''}</div>`
+}
+function num(value, fallback) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+function fitPanels() {
+  if (preview) return
+  root.querySelectorAll('.panel.scroll-auto').forEach((panelNode) => {
+    const inner = panelNode.querySelector('.panel-inner')
+    if (!inner || panelNode.scrollHeight <= panelNode.clientHeight + 2) return
+    const seconds = Math.max(20, Math.round(inner.scrollHeight / 28))
+    inner.innerHTML += `<div class="panel-gap"></div>${inner.innerHTML}`
+    inner.classList.add('panel-drift')
+    inner.style.animationDuration = `${seconds}s`
+  })
+}
+let selectedSection = ''
+function bindPanels() {
+  if (!preview) return
+  root.querySelectorAll('.panel').forEach((panelNode) => {
+    const id = panelNode.dataset.section
+    if (id === selectedSection) panelNode.classList.add('selected')
+    panelNode.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return
+      const resizing = Boolean(event.target.closest('.panel-resize'))
+      if (!resizing && event.target.closest('[contenteditable], .detail-sheet')) return
+      const canvas = root.querySelector('.canvas')
+      const rect = panelNode.getBoundingClientRect()
+      const canvasRect = canvas.getBoundingClientRect()
+      const ratio = payload.mode.width / canvasRect.width
+      const start = { x: event.clientX, y: event.clientY, left: rect.left - canvasRect.left, top: rect.top - canvasRect.top, width: rect.width, height: rect.height }
+      let moved = false
+      selectPanel(panelNode)
+      const move = (ev) => {
+        const dx = (ev.clientX - start.x) * ratio
+        const dy = (ev.clientY - start.y) * ratio
+        if (!moved && Math.hypot(dx, dy) < 4) return
+        moved = true
+        const box = resizing
+          ? { x: start.left * ratio, y: start.top * ratio, w: Math.max(40, start.width * ratio + dx), h: Math.max(40, start.height * ratio + dy) }
+          : { x: start.left * ratio + dx, y: start.top * ratio + dy, w: start.width * ratio, h: start.height * ratio }
+        const pct = {
+          x: clamp(box.x / payload.mode.width * 100, -20, 100), y: clamp(box.y / payload.mode.height * 100, -20, 100),
+          w: clamp(box.w / payload.mode.width * 100, 2, 140), h: clamp(box.h / payload.mode.height * 100, 2, 140),
+        }
+        panelNode.style.left = `${pct.x}%`; panelNode.style.top = `${pct.y}%`; panelNode.style.width = `${pct.w}%`; panelNode.style.height = `${pct.h}%`
+        panelNode.dataset.pending = JSON.stringify(pct)
+      }
+      const up = () => {
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', up)
+        if (!moved) return
+        const pct = JSON.parse(panelNode.dataset.pending || '{}')
+        window.parent.postMessage({ type: 'signage-layout', id, ...roundBox(pct) }, location.origin)
+        panelNode.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault() }, { capture: true, once: true })
+      }
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', up)
+    })
+  })
+}
+function selectPanel(panelNode) {
+  root.querySelectorAll('.panel.selected').forEach((node) => node.classList.remove('selected'))
+  panelNode.classList.add('selected')
+  selectedSection = panelNode.dataset.section
+  window.parent.postMessage({ type: 'signage-select', id: selectedSection }, location.origin)
+}
+function roundBox(box) {
+  return Object.fromEntries(Object.entries(box).map(([key, value]) => [key, Math.round(value * 10) / 10]))
+}
+function clamp(value, low, high) { return Math.min(high, Math.max(low, value)) }
 
 function bodyFor(item) {
   if (item.template === 'award' && item.award) return award(item)
@@ -145,13 +252,13 @@ function award(item) {
       <div class="badge-slot">${item.branding.badgeMediaId ? `<img src="/media/${item.branding.badgeMediaId}" alt="">` : '<div class="seal-mark">STAR</div>'}</div>
     </div>
     <div class="history-head">Previous recipients</div>
-    ${list('plates', item.award.history, item, (row) => `<article class="plate"${remember(row.id, personRecord(row))}><strong>${escapeHtml(row.name)}</strong><span>#${escapeHtml(row.badgeNumber || '')} · ${escapeHtml(row.awardYear || '')}</span></article>`)}
+    ${list('plates', item.award.history, item, (row) => `<article class="plate ${row.photoId ? 'with-photo' : ''}"${remember(row.id, personRecord(row))}>${row.photoId ? `<img class="plate-photo" src="/media/${escapeHtml(row.photoId)}" alt="">` : ''}<strong>${escapeHtml(row.name)}</strong><span>#${escapeHtml(row.badgeNumber || '')} · ${escapeHtml(row.awardYear || '')}</span></article>`)}
     <footer class="board-foot"><span>${escapeHtml(item.branding.agencyName || '')}</span><span>${escapeHtml(item.branding.sheriffLine || '')}</span></footer>
   </section>`
 }
 function directory(item) {
   return `<section class="directory"><h1 class="rise">${escapeHtml(item.directory.title || '')}</h1>
-    ${list('cards', item.directory.cards, item, (card) => `<article class="card"${remember(card.id, { title: card.name, image: card.logoId, lines: [card.subtitle, card.phone].filter(Boolean), body: card.details || '' })}>${card.logoId ? `<img class="card-logo" src="/media/${card.logoId}" alt="">` : ''}<strong>${escapeHtml(card.name)}</strong><span>${escapeHtml(card.subtitle || '')}</span><span>${escapeHtml(card.phone || '')}</span><span>${escapeHtml(card.details || '')}</span></article>`)}
+    ${list('cards', item.directory.cards, item, (card) => `<article class="card ${card.logoId ? 'with-logo' : ''}"${remember(card.id, { title: card.name, image: card.logoId, lines: [card.subtitle, card.phone, card.address, card.hours].filter(Boolean), body: card.details || '' })}>${card.logoId ? `<img class="card-logo" src="/media/${escapeHtml(card.logoId)}" alt="">` : ''}<div class="card-text"><strong>${escapeHtml(card.name)}</strong>${card.subtitle ? `<span>${escapeHtml(card.subtitle)}</span>` : ''}${card.phone ? `<span>${escapeHtml(card.phone)}</span>` : ''}${card.address ? `<span>${escapeHtml(card.address)}</span>` : ''}${card.hours ? `<span>${escapeHtml(card.hours)}</span>` : ''}${card.details ? `<span>${escapeHtml(card.details)}</span>` : ''}</div></article>`)}
   </section>`
 }
 function slides(item) {
@@ -183,13 +290,18 @@ function chrome() {
   return `<div class="footer-chrome">${payload.presentation.showClock ? `<span data-clock>${clockText()}</span>` : ''}${payload.weather ? `<span>${payload.weather.tempF}° ${escapeHtml(payload.weather.condition || payload.weather.summary || '')}</span>` : ''}</div>`
 }
 function paintChrome() {
-  const node = root.querySelector('[data-clock]')
-  if (node) node.textContent = clockText()
+  root.querySelectorAll('[data-clock]').forEach((node) => { node.textContent = clockText() })
+  root.querySelectorAll('[data-date]').forEach((node) => { node.textContent = dateText() })
+}
+function nowOnServer() {
+  if (!payload?._clientNow) payload._clientNow = Date.now()
+  return new Date(new Date(payload.serverNow).getTime() + (Date.now() - payload._clientNow))
 }
 function clockText() {
-  if (!payload?._clientNow) payload._clientNow = Date.now()
-  const time = new Date(new Date(payload.serverNow).getTime() + (Date.now() - payload._clientNow))
-  return new Intl.DateTimeFormat('en-US', { timeZone: payload.timezone, hour: 'numeric', minute: '2-digit' }).format(time)
+  return new Intl.DateTimeFormat('en-US', { timeZone: payload.timezone, hour: 'numeric', minute: '2-digit' }).format(nowOnServer())
+}
+function dateText() {
+  return new Intl.DateTimeFormat('en-US', { timeZone: payload.timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(nowOnServer())
 }
 setInterval(paintChrome, 1000)
 function seal(branding) {

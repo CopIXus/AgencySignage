@@ -8,11 +8,11 @@
 }
 .stage-root.previewing { cursor: auto; background: transparent; }
 .stage-root.previewing, .stage-root.previewing * { cursor: auto; }
+.canvas-wrap { position: absolute; left: 50%; top: 50%; transform-origin: center center; }
 .canvas {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform-origin: center center;
+  left: 0;
+  top: 0;
   overflow: hidden;
   color: var(--ink, #f4efe4);
   background: var(--primary, #0c2340);
@@ -143,7 +143,52 @@
 .canvas.tall .cards { grid-template-columns: repeat(2, 1fr); }
 .canvas.tight .cards { grid-template-columns: repeat(3, 1fr); }
 .card { min-height: 0; }
-.card-logo { width: 2.4em; height: 2.4em; float: right; border-radius: 4px; }
+.card.with-logo { display: grid; grid-template-columns: auto 1fr; gap: .6em; align-items: start; }
+.card-logo { width: 3.2em; height: 3.2em; border-radius: 6px; background: #fff; }
+.card-logo img, .card-logo { object-fit: contain; }
+.card-text { min-width: 0; }
+.card-text span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.plate.with-photo { display: grid; grid-template-columns: auto 1fr; column-gap: .6em; align-items: center; }
+.plate-photo { width: 2.6em; height: 3.1em; object-fit: cover; border-radius: 3px; grid-row: span 2; background: #d9d3c7; }
+.detail-card img { background: #fff; }
+
+/* Layout mode: background photo + floating panels */
+.layer-bg { position: absolute; inset: -1%; background-position: center; background-repeat: no-repeat; z-index: 0; }
+.layer-dim { position: absolute; inset: 0; z-index: 0; }
+.panel { position: absolute; overflow: hidden; z-index: 1; }
+.panel-inner { position: relative; }
+.panel-content .board, .panel-content .directory, .panel-content .slide { padding: 0; }
+.panel.scroll-fit .panel-content, .panel.scroll-clip .panel-content { height: 100%; }
+.panel.scroll-auto .panel-content { min-height: 100%; }
+.panel.scroll-auto .panel-content .board, .panel.scroll-auto .panel-content .directory { height: auto; min-height: 100%; }
+.panel.scroll-auto .history-window { flex: none; overflow: visible; }
+.panel.scroll-auto .history-window.fade::before, .panel.scroll-auto .history-window.fade::after { display: none; }
+.panel-gap { height: 6cqh; }
+.panel-drift { animation: panel-drift linear infinite; }
+@keyframes panel-drift { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+.canvas.holding .panel-drift { animation-play-state: paused; }
+.panel-text { line-height: 1.35; }
+.panel-text h3 { margin: 0 0 .35em; font-family: Georgia, "Liberation Serif", serif; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-size: 1.35em; }
+.panel-image { width: 100%; height: 100%; display: block; }
+.panel-placeholder { height: 100%; display: grid; place-items: center; opacity: .55; font-size: 2cqh; letter-spacing: .08em; text-transform: uppercase; }
+.panel-clock { height: 100%; display: flex; flex-direction: column; justify-content: center; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.panel-clock small { font-size: .34em; letter-spacing: .14em; text-transform: uppercase; opacity: .82; margin-top: .3em; }
+.stage-root.previewing .panel { outline: 1px dashed rgba(255, 255, 255, .28); outline-offset: -1px; }
+.stage-root.previewing .panel.selected { outline: 3px solid #06b6d4; }
+.stage-root.previewing .panel.scroll-auto { overflow: auto; }
+.panel-handle {
+  position: absolute; top: 0; left: 0; right: 0; height: 30px; z-index: 3;
+  background: rgba(6, 182, 212, .9); color: #02131a;
+  font: 600 14px/30px "Segoe UI", sans-serif; letter-spacing: .04em; padding: 0 10px;
+  cursor: move; opacity: 0; transition: opacity .15s;
+}
+.panel-resize {
+  position: absolute; right: 0; bottom: 0; width: 28px; height: 28px; z-index: 3;
+  cursor: nwse-resize; background: linear-gradient(135deg, transparent 50%, #06b6d4 50%); opacity: 0; transition: opacity .15s;
+}
+.panel:hover .panel-handle, .panel.selected .panel-handle, .panel:hover .panel-resize, .panel.selected .panel-resize { opacity: 1; }
+.stage-root.previewing .panel { cursor: move; }
+.stage-root.previewing .panel [contenteditable] { cursor: text; }
 .slide {
   justify-content: center;
   background-size: cover;

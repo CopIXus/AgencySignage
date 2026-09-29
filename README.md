@@ -34,17 +34,46 @@ Open `https://localhost:8443/admin`.
 
 Trust the local certificate once so the browser stops warning: download `https://localhost:8443/setup/ca.crt` and install it as a trusted root. Kiosk installers do this for the display device.
 
+## The admin
+
+![Dashboard with live thumbnails of every screen, display status, and recent publishes](docs/admin-dashboard.png)
+
+The admin is a dark operations console with a sidebar, metric cards, and a live thumbnail of every screen so you can tell them apart at a glance. Each thumbnail is the real display page, scaled down. Settings lets you set the agency name and logo for the sidebar and pick a light or dark theme.
+
 ## What you can edit
 
-- Award boards, with history that either fits or scrolls slowly, and a control that moves the current honoree into history.
-- Card directories that stay alphabetical and scale so the list stays on one screen.
-- Rotating slides with text, a QR code, and optional day and time windows.
+- Award boards, with an officer photo on the current honoree and on previous recipients, history that either fits or scrolls slowly, and a control that moves the current honoree into history.
+- Card directories that stay alphabetical, with a logo, phone, address, hours, and notes on each card. CSV import is built in.
+- Rotating slides with text, a photo, a QR code, and optional day and time windows.
 - Playlists of those screens, with a quiet countdown, a nightly-safe loop, and one priority override.
 - Clock and weather on each screen. Weather hides when it cannot be refreshed.
 
+The editor shows the same page the TV renders, with tabs for **Content**, **Layout**, **Look**, **Display**, and **Publish**. Click a heading in the preview to edit it in place. Choose photos and logos from the media picker; upload from there too.
+
+### Layout mode: photo background with floating panels
+
+![Editor in layout mode: content panel, clock, and a notice panel over the page](docs/editor-layout.png)
+
+Turn on **Layout** for a screen to put a photo behind it and place panels over the top. Panels are positioned in percent of the screen, so the same layout works on any TV size. Drag a panel in the preview to move it; pull the corner to resize. Panel kinds:
+
+- **Template content**: the award board, directory cards, or slides. When the data is taller than the panel it scrolls slowly, or you can shrink it to fit.
+- **Text**: a heading and paragraph you write yourself.
+- **Photo or logo**: one uploaded image, fitted in the box.
+- **Clock**: large time with the date.
+
+Each panel has its own color, opacity, corner radius, padding, text size, alignment, border, and shadow. Presets give you a starting point. **Look** offers palettes and type styles per screen.
+
+![The published directory on a 1080p TV in layout mode](docs/display-layout.png)
+
 The dashboard shows whether each named display is in use, how many times the page has loaded, whether it is on the published version, and whether the resolution matches.
 
-On a tablet, turn on **Tap a card to open details** for that screen. A tap opens the full card, and the board returns on its own after the number of seconds you set. Touching the detail keeps it open a little longer. Lobby TVs can leave this off.
+On a tablet, turn on **Tap a card to open details** for that screen. A tap opens the full card with its photo or logo, and the board returns on its own after the number of seconds you set. Touching the detail keeps it open a little longer. Lobby TVs can leave this off.
+
+## Let an AI assistant build pages
+
+Under **AI access** an admin creates an API token. Give your assistant the token, the server address, and the guide at `/api/docs` (also `/llms.txt`), and it can create screens, fill in rows, upload photos, lay out panels, and publish over the local API. `/api/schema` is the machine-readable version. Tokens can be revoked at any time, and everything stays on your network.
+
+Requests carry `Authorization: Bearer sig_...`. The guide lives in this repo at [docs/AI-GUIDE.md](docs/AI-GUIDE.md).
 
 ## Raspberry Pi
 
@@ -73,8 +102,7 @@ node server/reset-password.js admin 'a-new-password'
 ## Development without HTTPS
 
 ```bash
-set SIGNAGE_INSECURE=1
-node server/index.js
+npm run dev
 ```
 
-That serves plain HTTP on port 8080 for a local check. The Pi install uses HTTPS.
+That sets `SIGNAGE_INSECURE=1` and serves plain HTTP on port 8080 for a local check. The Pi install uses HTTPS. `node scripts/smoke.mjs <admin-password>` exercises the API end to end. There are no npm dependencies and no build step; the server uses Node 22 built-ins and the pages are plain JavaScript.

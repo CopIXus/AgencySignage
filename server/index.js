@@ -7,14 +7,14 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import {
   agencyRow, backupDir, certDir, clientDir, dataDir, database, databasePath, getDataset, getScreen, getScreenBySlug,
-  getUserByUsername, listDatasets, listScreens, listUsers, mediaDir, openDatabase,
+  getUserByUsername, listDatasets, listScreens, listUsers, mediaDir, openDatabase, rootDir,
 } from './db.js'
 import { buildPayload } from './payload.js'
 import { createZip, readZip } from './zip.js'
 import { hashPassword, verifyPassword } from './passwords.js'
 import {
-  DISPLAY_MODES, brandingDefaults, cardsFromCsv, clockLooksWrong, closestMode, customMode, datasetKindFor,
-  emptyDraft, familyFor, presentationDefaults, resolveMode, zonedParts,
+  DISPLAY_MODES, cardsFromCsv, clockLooksWrong, closestMode, datasetKindFor, defaultLayout,
+  emptyDraft, presentationDefaults, resolveMode,
 } from '../shared/runtime.js'
 
 const httpPort = Number(process.env.SIGNAGE_HTTP_PORT || 8080)
@@ -183,6 +183,18 @@ route('POST', '/api/media', async (req, res) => {
   db.prepare('INSERT INTO media (id, folder, filename, mime, bytes, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(id, form.fields.folder || 'photos', file.name || `${id}.${ext}`, cleaned.mime, cleaned.data.length, new Date().toISOString())
   send(res, 200, db.prepare('SELECT * FROM media WHERE id = ?').get(id))
 })
+route('POST', '/api/media/base64', async (req, res) => {
+  if (diskFree() < 500 * 1024 * 1024) return send(res, 507, { error: 'Not enough free disk space' })
+  const body = await readJson(req)
+  const data = Buffer.from(String(body.data || '').replace(/^data:[^,]*,/, ''), 'base64')
+  if (!data.length || data.length > 15 * 1024 * 1024) return send(res, 400, { error: 'Send base64 image data under 15 MB' })
+  const cleaned = stripMetadata(data, body.mime || 'image/jpeg')
+  const id = crypto.randomUUID()
+  const ext = cleaned.mime === 'image/png' ? 'png' : 'jpg'
+  fs.writeFileSync(path.join(mediaDir, `${id}.${ext}`), cleaned.data)
+  db.prepare('INSERT INTO media (id, folder, filename, mime, bytes, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(id, body.folder || 'photos', body.filename || `${id}.${ext}`, cleaned.mime, cleaned.data.length, new Date().toISOString())
+  send(res, 200, db.prepare('SELECT * FROM media WHERE id = ?').get(id))
+})
 route('DELETE', '/api/media/:id', async (req, res, user, params) => {
   for (const ext of ['jpg', 'png', 'webp']) fs.rmSync(path.join(mediaDir, `${params.id}.${ext}`), { force: true })
   db.prepare('DELETE FROM media WHERE id = ?').run(params.id)
@@ -201,9 +213,43 @@ route('GET', '/api/agency', async (req, res) => send(res, 200, publicAgency()))
 route('PUT', '/api/agency', async (req, res, user) => {
   if (user.role !== 'admin') return send(res, 403, { error: 'Admin only' })
   const body = await readJson(req)
-  db.prepare('UPDATE agency SET timezone = ?, weather_lat = ?, weather_lon = ? WHERE id = 1').run(body.timezone || 'America/Detroit', body.weatherLat ?? null, body.weatherLon ?? null)
+  const current = publicAgency()
+  db.prepare('UPDATE agency SET timezone = ?, weather_lat = ?, weather_lon = ?, name = ?, logo_media_id = ?, theme = ? WHERE id = 1').run(
+    body.timezone || current.timezone || 'America/Detroit', body.weatherLat ?? current.weatherLat ?? null, body.weatherLon ?? current.weatherLon ?? null,
+    String(body.name ?? current.name).slice(0, 80) || 'Agency Signage', body.logoMediaId === undefined ? current.logoMediaId : (body.logoMediaId || null), body.theme === 'light' ? 'light' : 'dark',
+  )
   send(res, 200, publicAgency())
 })
+route('GET', '/api/public/agency', async (req, res) => {
+  const agency = publicAgency()
+  send(res, 200, { name: agency.name, logoMediaId: agency.logoMediaId, theme: agency.theme })
+})
+route('GET', '/api/tokens', async (req, res, user) => {
+  if (user.role !== 'admin') return send(res, 403, { error: 'Admin only' })
+  send(res, 200, db.prepare('SELECT id, name, role, created_at, last_used FROM api_tokens ORDER BY created_at DESC').all())
+})
+route('POST', '/api/tokens', async (req, res, user) => {
+  if (user.role !== 'admin') return send(res, 403, { error: 'Admin only' })
+  const body = await readJson(req)
+  const secret = `sig_${crypto.randomBytes(24).toString('base64url')}`
+  const id = crypto.randomUUID()
+  db.prepare('INSERT INTO api_tokens (id, name, token_hash, role, created_at) VALUES (?, ?, ?, ?, ?)').run(id, String(body.name || 'AI assistant').slice(0, 60), crypto.createHash('sha256').update(secret).digest('hex'), body.role === 'admin' ? 'admin' : 'editor', new Date().toISOString())
+  send(res, 200, { id, token: secret, name: body.name || 'AI assistant', role: body.role === 'admin' ? 'admin' : 'editor' })
+})
+route('DELETE', '/api/tokens/:id', async (req, res, user, params) => {
+  if (user.role !== 'admin') return send(res, 403, { error: 'Admin only' })
+  db.prepare('DELETE FROM api_tokens WHERE id = ?').run(params.id)
+  send(res, 200, { ok: true })
+})
+route('GET', '/api/docs', async (req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' })
+  res.end(fs.readFileSync(path.join(rootDir, 'docs', 'AI-GUIDE.md')))
+})
+route('GET', '/llms.txt', async (req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
+  res.end(fs.readFileSync(path.join(rootDir, 'docs', 'AI-GUIDE.md')))
+})
+route('GET', '/api/schema', async (req, res) => send(res, 200, apiSchema()))
 route('GET', '/api/users', async (req, res, user) => {
   if (user.role !== 'admin') return send(res, 403, { error: 'Admin only' })
   send(res, 200, listUsers().map((row) => ({ id: row.id, username: row.username, role: row.role })))
@@ -340,7 +386,8 @@ async function handle(req, res) {
       const params = matchPath(item.pattern, pathname)
       if (!params) continue
       const user = currentUser(req)
-      if (pathname.startsWith('/api/') && !pathname.startsWith('/api/login') && !pathname.startsWith('/api/public/') && !pathname.startsWith('/api/setup/')) {
+      const open = pathname.startsWith('/api/login') || pathname.startsWith('/api/public/') || pathname.startsWith('/api/setup/') || pathname === '/api/docs' || pathname === '/api/schema'
+      if (pathname.startsWith('/api/') && !open) {
         if (!user) return send(res, 401, { error: 'Sign in required' })
       }
       await item.handler(req, res, user, params)
@@ -370,6 +417,13 @@ function matchPath(pattern, pathname) {
 }
 
 function currentUser(req) {
+  const bearer = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '')?.[1]
+  if (bearer) {
+    const token = db.prepare('SELECT * FROM api_tokens WHERE token_hash = ?').get(crypto.createHash('sha256').update(bearer).digest('hex'))
+    if (!token) return null
+    db.prepare('UPDATE api_tokens SET last_used = ? WHERE id = ?').run(new Date().toISOString(), token.id)
+    return { id: `token:${token.id}`, username: token.name, role: token.role, token: true }
+  }
   const sid = readCookie(req, 'signage_sid')
   if (!sid) return null
   const row = db.prepare(`SELECT users.* FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.id = ? AND sessions.expires_at > ?`).get(sid, new Date().toISOString())
@@ -382,17 +436,64 @@ function publicScreen(row, full = false) {
     presentation: JSON.parse(row.presentation_json), datasetId: row.dataset_id, version: row.version, loadCount: row.load_count, updatedAt: row.updated_at,
   }
   if (full) {
-    screen.draft = JSON.parse(row.draft_json)
+    screen.draft = { layout: defaultLayout(), ...JSON.parse(row.draft_json) }
     screen.published = row.published_json ? JSON.parse(row.published_json) : null
   }
   return screen
+}
+function apiSchema() {
+  const auth = 'Cookie signage_sid from POST /api/login, or header Authorization: Bearer <token> from Settings > AI access'
+  return {
+    name: 'Agency Signage API',
+    docs: '/api/docs',
+    auth,
+    templates: {
+      award: { draft: { title: 'string', current: { name: '', badgeNumber: '', awardYear: '', rank: '', hireDate: '', yearsOfService: '', photoId: 'media id or null' }, branding: 'see brandingDefaults', layout: 'see layout' }, datasetKind: 'honorees', datasetRow: { id: 'uuid', name: '', badgeNumber: '', awardYear: '2024', rank: '', hireDate: '', yearsOfService: '', photoId: null } },
+      directory: { draft: { title: 'string', branding: '...', layout: '...' }, datasetKind: 'cards', datasetRow: { id: 'uuid', name: '', phone: '', address: '', hours: '', notes: '', logoId: 'media id or null' } },
+      slides: { draft: { branding: '...', layout: '...' }, datasetKind: 'slides', datasetRow: { id: 'uuid', title: '', body: '', qrUrl: '', seconds: 12, days: ['Mon'], startTime: '08:00', endTime: '17:00' } },
+      playlist: { draft: { branding: '...', layout: '...', entries: [{ screenId: 'uuid', seconds: 20 }] }, datasetKind: null },
+    },
+    layout: defaultLayout(),
+    presentation: presentationDefaults('award'),
+    modes: DISPLAY_MODES.map((mode) => mode.id),
+    turn: ['none', 'clockwise', 'counterclockwise'],
+    routes: [
+      { method: 'POST', path: '/api/login', body: { username: '', password: '' } },
+      { method: 'GET', path: '/api/me' },
+      { method: 'GET', path: '/api/dashboard' },
+      { method: 'GET', path: '/api/screens' },
+      { method: 'POST', path: '/api/screens', body: { name: '', template: 'award|directory|slides|playlist', modeId: 'e.g. fhd-portrait', turn: 'counterclockwise' } },
+      { method: 'GET', path: '/api/screens/:id', note: 'includes draft and published' },
+      { method: 'PUT', path: '/api/screens/:id', body: { name: '', slug: '', modeId: '', turn: '', presentation: {}, draft: {} }, note: 'draft replaces the whole draft; send the full object' },
+      { method: 'POST', path: '/api/screens/:id/publish' },
+      { method: 'POST', path: '/api/screens/:id/revert' },
+      { method: 'POST', path: '/api/screens/:id/move-to-history', note: 'award only' },
+      { method: 'DELETE', path: '/api/screens/:id' },
+      { method: 'GET', path: '/api/datasets' },
+      { method: 'PUT', path: '/api/datasets/:id', body: { name: '', rows: [], source: 'manual|lan-http', sourceUrl: '', intervalSec: 300 } },
+      { method: 'POST', path: '/api/datasets/:id/import', body: { csv: 'name,phone,address,hours,notes', replace: false } },
+      { method: 'GET', path: '/api/media' },
+      { method: 'POST', path: '/api/media', note: 'multipart/form-data with field "file" (jpeg/png under 15 MB) and optional "folder"' },
+      { method: 'POST', path: '/api/media/base64', body: { filename: 'photo.jpg', mime: 'image/jpeg', folder: 'photos', data: '<base64>' } },
+      { method: 'DELETE', path: '/api/media/:id' },
+      { method: 'GET', path: '/media/:id', note: 'the image bytes' },
+      { method: 'GET', path: '/api/agency' },
+      { method: 'PUT', path: '/api/agency', body: { name: '', logoMediaId: null, theme: 'dark|light', timezone: '', weatherLat: null, weatherLon: null }, note: 'admin' },
+      { method: 'GET', path: '/api/override' },
+      { method: 'PUT', path: '/api/override', body: { active: false, title: '', body: '', screenId: null } },
+      { method: 'GET', path: '/api/modes' },
+      { method: 'GET', path: '/api/public/screens/:slug?preview=1', note: 'rendered payload of the draft; players use it without preview' },
+      { method: 'GET', path: '/api/tokens', note: 'admin' },
+      { method: 'POST', path: '/api/tokens', body: { name: '', role: 'editor|admin' }, note: 'admin; returns the token once' },
+    ],
+  }
 }
 function publicDataset(row) {
   return { id: row.id, name: row.name, kind: row.kind, rows: JSON.parse(row.rows_json), source: row.source, sourceUrl: row.source_url, intervalSec: row.interval_sec, lastFetch: row.last_fetch, lastError: row.last_error }
 }
 function publicAgency() {
   const row = agencyRow()
-  return { timezone: row.timezone, weatherLat: row.weather_lat, weatherLon: row.weather_lon }
+  return { name: row.name || 'Agency Signage', logoMediaId: row.logo_media_id || null, theme: row.theme || 'dark', timezone: row.timezone, weatherLat: row.weather_lat, weatherLon: row.weather_lon }
 }
 function publicOverride() {
   const row = db.prepare('SELECT * FROM overrides WHERE id = 1').get()

@@ -21,6 +21,7 @@ export function buildPayload(options) {
   }
   if (!content || (source === 'published' && screen.version === 0)) return base
   base.empty = false
+  base.layout = content.layout && content.layout.enabled ? content.layout : null
   if (screen.template === 'award') {
     const history = [...(options.datasetRows || [])].sort((a, b) => Number(b.awardYear) - Number(a.awardYear) || a.name.localeCompare(b.name))
     base.award = { title: content.title, current: content.current, history }
